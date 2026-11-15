@@ -37,9 +37,10 @@ def train_model(
         weight_decay: float = 1e-8,
         momentum: float = 0.999,
         gradient_clipping: float = 1.0,
+        tip_preprocesare: int = 0,
 ):
     # 1. Create dataset
-    dataset = BasicDataset(dir_img, dir_mask, img_scale, mask_suffix='')
+    dataset = BasicDataset(dir_img, dir_mask, img_scale, tip_preprocesare, mask_suffix='')
 
     # 2. Split into train / validation partitions
     n_val = int(len(dataset) * val_percent)
@@ -178,6 +179,8 @@ def get_args():
     parser.add_argument('--bilinear', action='store_true', default=False, help='Use bilinear upsampling')
     parser.add_argument('--classes', '-c', type=int, default=2, help='Number of classes')
 
+    parser.add_argument('--tip_preprocesare', type=int, default=0, help='Tipul preprocesarii:0-Fara 1-Clahe 2-Histograma egalizata normal 3=aflam noi')
+
     return parser.parse_args()
 
 
@@ -215,7 +218,8 @@ if __name__ == '__main__':
             device=device,
             img_scale=args.scale,
             val_percent=args.val / 100,
-            amp=args.amp
+            amp=args.amp,
+            tip_preprocesare=args.tip_preprocesare
         )
     except torch.cuda.OutOfMemoryError:
         logging.error('Detected OutOfMemoryError! '

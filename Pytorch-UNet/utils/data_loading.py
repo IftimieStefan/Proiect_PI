@@ -11,7 +11,7 @@ from os.path import splitext, isfile, join
 from pathlib import Path
 from torch.utils.data import Dataset
 from tqdm import tqdm
-
+import preprocesare
 
 def load_image(filename):
     ext = splitext(filename)[1]
@@ -36,12 +36,13 @@ def unique_mask_values(idx, mask_dir, mask_suffix):
 
 
 class BasicDataset(Dataset):
-    def __init__(self, images_dir: str, mask_dir: str, scale: float = 1.0, mask_suffix: str = ''):
+    def __init__(self, images_dir: str, mask_dir: str, scale: float = 1.0, mask_suffix: str = '', tip_preprocesare: int =0):
         self.images_dir = Path(images_dir)
         self.mask_dir = Path(mask_dir)
         assert 0 < scale <= 1, 'Scale must be between 0 and 1'
         self.scale = scale
         self.mask_suffix = mask_suffix
+        self.tip_preprocesare=tip_preprocesare
 
         self.ids = [splitext(file)[0] for file in listdir(images_dir) if isfile(join(images_dir, file)) and not file.startswith('.')]
         if not self.ids:
@@ -65,7 +66,7 @@ class BasicDataset(Dataset):
         return len(self.ids)
 
     @staticmethod
-    def preprocess(mask_values, pil_img, scale, is_mask):
+    def preprocess(mask_values, pil_img, scale, tip_preprocesare, is_mask):
         w, h = pil_img.size
         newW, newH = 256, 256;
         assert newW > 0 and newH > 0, 'Scale is too small, resized images would have no pixel'
@@ -91,7 +92,11 @@ class BasicDataset(Dataset):
 
             if (img > 1).any():
                 img = img / 255.0
-
+            match tip_preprocesare:
+                case 1:
+                    img=preprocesare.clahe(img)
+                case 2:
+                    img=preprocesare.eqhist(img)
             return img
 
     def __getitem__(self, idx):
@@ -107,8 +112,8 @@ class BasicDataset(Dataset):
         assert img.size == mask.size, \
             f'Image and mask {name} should be the same size, but are {img.size} and {mask.size}'
 
-        img = self.preprocess(self.mask_values, img, self.scale, is_mask=False)
-        mask = self.preprocess(self.mask_values, mask, self.scale, is_mask=True)
+        img = self.preprocess(self.mask_values, img, self.scale, self.tip_preprocesare, is_mask=False)
+        mask = self.preprocess(self.mask_values, mask, self.scale, self.tip_preprocesare, is_mask=True)
 
         return {
             'image': torch.as_tensor(img.copy()).float().contiguous(),
