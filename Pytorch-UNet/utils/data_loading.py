@@ -11,7 +11,7 @@ from os.path import splitext, isfile, join
 from pathlib import Path
 from torch.utils.data import Dataset
 from tqdm import tqdm
-import preprocesare
+from . import preprocesare
 
 def load_image(filename):
     ext = splitext(filename)[1]
@@ -36,7 +36,7 @@ def unique_mask_values(idx, mask_dir, mask_suffix):
 
 
 class BasicDataset(Dataset):
-    def __init__(self, images_dir: str, mask_dir: str, scale: float = 1.0, mask_suffix: str = '', tip_preprocesare: int =0):
+    def __init__(self, images_dir: str, mask_dir: str, scale: float = 1.0, tip_preprocesare: int =0,mask_suffix: str = ''):
         self.images_dir = Path(images_dir)
         self.mask_dir = Path(mask_dir)
         assert 0 < scale <= 1, 'Scale must be between 0 and 1'
@@ -85,6 +85,12 @@ class BasicDataset(Dataset):
             return mask
 
         else:
+            match tip_preprocesare:
+                case 1:
+                    img=preprocesare.clahe(img)
+                case 2:
+                    img=preprocesare.eqhist(img)
+
             if img.ndim == 2:
                 img = img[np.newaxis, ...]
             else:
@@ -92,11 +98,7 @@ class BasicDataset(Dataset):
 
             if (img > 1).any():
                 img = img / 255.0
-            match tip_preprocesare:
-                case 1:
-                    img=preprocesare.clahe(img)
-                case 2:
-                    img=preprocesare.eqhist(img)
+
             return img
 
     def __getitem__(self, idx):
