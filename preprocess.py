@@ -13,13 +13,22 @@ for entry in os.listdir(basepath):
         dst = cv2.equalizeHist(gray_img)
 
         ycrcb_img = cv2.cvtColor(img_denoise, cv2.COLOR_BGR2YCrCb)
-        ycrcb_img[:, :, 0] = cv2.equalizeHist(ycrcb_img[:, :, 0])
-        equalized_img = cv2.cvtColor(ycrcb_img, cv2.COLOR_YCrCb2BGR)
+        ycrcb_img_2 = ycrcb_img
+
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        img_clahe = clahe.apply(ycrcb_img[:, :, 0])
+
+        ycrcb_img[:, :, 0] = cv2.equalizeHist(ycrcb_img_2[:, :, 0])
+        equalized_img = cv2.cvtColor(ycrcb_img_2, cv2.COLOR_YCrCb2BGR)
+
+
 
         cv2.imshow('chestie', img)
         cv2.waitKey()
-        cv2.imshow('eliminare zgomot', img_denoise)
+        cv2.imshow('clahe', img_clahe)
         cv2.waitKey()
+       # cv2.imshow('eliminare zgomot', img_denoise)
+       # cv2.waitKey()
         cv2.imshow('normalizare', dst)
         cv2.waitKey()
         cv2.imshow('normalizare2', equalized_img)
