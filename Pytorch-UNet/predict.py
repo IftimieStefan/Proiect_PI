@@ -12,13 +12,16 @@ from utils.data_loading import BasicDataset
 from unet import UNet
 from utils.utils import plot_img_and_mask
 
+from utils import preprocesare
+
 def predict_img(net,
                 full_img,
                 device,
                 scale_factor=1,
-                out_threshold=0.5):
+                out_threshold=0.5,
+                tip_preprocesare=0):
     net.eval()
-    img = torch.from_numpy(BasicDataset.preprocess(None, full_img, scale_factor, is_mask=False))
+    img = torch.from_numpy(BasicDataset.preprocess(None, full_img, scale_factor, tip_preprocesare, is_mask=False))
     img = img.unsqueeze(0)
     img = img.to(device=device, dtype=torch.float32)
 
@@ -48,7 +51,8 @@ def get_args():
                         help='Scale factor for the input images')
     parser.add_argument('--bilinear', action='store_true', default=False, help='Use bilinear upsampling')
     parser.add_argument('--classes', '-c', type=int, default=2, help='Number of classes')
-    
+
+    parser.add_argument('--tip_preprocesare' ,type=int, default=0, help='Tipul preprocesarii 0=fara, 1=clahe 2=eqhist')
     return parser.parse_args()
 
 
@@ -82,6 +86,7 @@ if __name__ == '__main__':
 
     in_files = args.input
     out_files = get_output_filenames(args)
+    tip_preprocesare = args.tip_preprocesare
 
     net = UNet(n_channels=3, n_classes=args.classes, bilinear=args.bilinear)
 
@@ -99,6 +104,7 @@ if __name__ == '__main__':
     for i, filename in enumerate(in_files):
         logging.info(f'Predicting image {filename} ...')
         img = Image.open(filename)
+        img_afisare=np.asarray(img)
 
         mask = predict_img(net=net,
                            full_img=img,
@@ -114,4 +120,4 @@ if __name__ == '__main__':
 
         if args.viz:
             logging.info(f'Visualizing results for image {filename}, close to continue...')
-            plot_img_and_mask(img, mask)
+            plot_img_and_mask(img, preprocesare.clahe(img_afisare) if tip_preprocesare==2 else preprocesare.eqhist(img_afisare) if tip_preprocesare==1 else img_afisare , mask)
