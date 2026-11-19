@@ -11,6 +11,7 @@ import torchvision.transforms.functional as TF
 from pathlib import Path
 from torch import optim
 from torch.utils.data import DataLoader, random_split
+from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
 from tqdm import tqdm
 
 import wandb
@@ -48,7 +49,7 @@ def train_model(
     train_set, val_set = random_split(dataset, [n_train, n_val], generator=torch.Generator().manual_seed(0))
 
     # 3. Create data loaders
-    loader_args = dict(batch_size=batch_size, num_workers=0, pin_memory=True)
+    loader_args = dict(batch_size=batch_size, num_workers=4, pin_memory=True, persistent_workers=True)
     train_loader = DataLoader(train_set, shuffle=True, **loader_args)
     val_loader = DataLoader(val_set, shuffle=False, drop_last=True, **loader_args)
 
@@ -72,10 +73,14 @@ def train_model(
     ''')
 
     # 4. Set up the optimizer, the loss, the learning rate scheduler and the loss scaling for AMP
-    optimizer = optim.RMSprop(model.parameters(),
-                              lr=learning_rate, weight_decay=weight_decay, momentum=momentum, foreach=True)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=5)  # goal: maximize Dice score
-    grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
+    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+
+    warmup_epochs = 5
+    scheduler_warmup = LinearLR(optimizer, start_factor=0.01, total_iters=warmup_epochs)  # goal: maximize Dice score
+    scheduler_cosine= CosineAnnealingLR(optimizer, T_max=epochs-warmup_epochs, eta_min=1e-6)
+    scheduler = SequentialLR(optimizer, schedulers=[scheduler_warmup, scheduler_cosine], milestones=[warmup_epochs])
+
+    grad_scaler = torch.amp.GradScaler('cuda',enabled=amp)
     criterion = nn.CrossEntropyLoss() if model.n_classes > 1 else nn.BCEWithLogitsLoss()
     global_step = 0
 
@@ -138,7 +143,6 @@ def train_model(
                                 histograms['Gradients/' + tag] = wandb.Histogram(value.grad.data.cpu())
 
                         val_score = evaluate(model, val_loader, device, amp)
-                        scheduler.step(val_score)
 
                         logging.info('Validation Dice score: {}'.format(val_score))
                         try:
@@ -156,6 +160,7 @@ def train_model(
                             })
                         except:
                             pass
+        scheduler.step()
 
         if save_checkpoint:
             Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)

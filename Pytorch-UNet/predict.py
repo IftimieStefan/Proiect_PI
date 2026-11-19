@@ -21,7 +21,7 @@ def predict_img(net,
                 out_threshold=0.5,
                 tip_preprocesare=0):
     net.eval()
-    img = torch.from_numpy(BasicDataset.preprocess(None, full_img, scale_factor, tip_preprocesare, is_mask=False))
+    img = torch.from_numpy(BasicDataset.preprocess(None, full_img, scale_factor, tip_preprocesare, 0,is_mask=False))
     img = img.unsqueeze(0)
     img = img.to(device=device, dtype=torch.float32)
 
@@ -120,4 +120,4 @@ if __name__ == '__main__':
 
         if args.viz:
             logging.info(f'Visualizing results for image {filename}, close to continue...')
-            plot_img_and_mask(img, preprocesare.clahe(img_afisare) if tip_preprocesare==2 else preprocesare.eqhist(img_afisare) if tip_preprocesare==1 else img_afisare , mask)
+            plot_img_and_mask(img, preprocesare.clahe(preprocesare.adaptive_inpaint(img_afisare)) if tip_preprocesare==2 else preprocesare.eqhist(preprocesare.adaptive_inpaint(img_afisare)) if tip_preprocesare==1 else img_afisare , mask)

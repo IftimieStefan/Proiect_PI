@@ -11,6 +11,7 @@ from os.path import splitext, isfile, join
 from pathlib import Path
 from torch.utils.data import Dataset
 from tqdm import tqdm
+import random
 from . import preprocesare
 
 def load_image(filename):
@@ -66,11 +67,12 @@ class BasicDataset(Dataset):
         return len(self.ids)
 
     @staticmethod
-    def preprocess(mask_values, pil_img, scale, tip_preprocesare, is_mask):
+    def preprocess(mask_values, pil_img, scale, tip_preprocesare,unghi, is_mask):
         w, h = pil_img.size
         newW, newH = 256, 256;
         assert newW > 0 and newH > 0, 'Scale is too small, resized images would have no pixel'
         pil_img = pil_img.resize((newW, newH), resample=Image.NEAREST if is_mask else Image.BICUBIC)
+        pil_img=pil_img.rotate(unghi)
         img = np.asarray(pil_img)
 
         if is_mask:
@@ -85,6 +87,7 @@ class BasicDataset(Dataset):
             return mask
 
         else:
+            img=preprocesare.adaptive_inpaint(img)
             match tip_preprocesare:
                 case 1:
                     img=preprocesare.clahe(img)
@@ -114,8 +117,9 @@ class BasicDataset(Dataset):
         assert img.size == mask.size, \
             f'Image and mask {name} should be the same size, but are {img.size} and {mask.size}'
 
-        img = self.preprocess(self.mask_values, img, self.scale, self.tip_preprocesare, is_mask=False)
-        mask = self.preprocess(self.mask_values, mask, self.scale, self.tip_preprocesare, is_mask=True)
+        unghi=random.randint(0,3) * 90;
+        img = self.preprocess(self.mask_values, img, self.scale, self.tip_preprocesare, unghi, is_mask=False)
+        mask = self.preprocess(self.mask_values, mask, self.scale, self.tip_preprocesare, unghi, is_mask=True)
 
         return {
             'image': torch.as_tensor(img.copy()).float().contiguous(),
